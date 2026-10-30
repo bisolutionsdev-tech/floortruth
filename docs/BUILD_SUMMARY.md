@@ -45,3 +45,10 @@ cd ~/workspace/floortruth/floortruth-starter
 3. **Screenshots**: no live browser in this environment; capture from a real session before submitting.
 4. **Participant rules**: public page was stale ("rules will be published"); verify accepted Discord/participant terms before submitting.
 5. Meta processing mode cannot be verified here — no Standard/Contributor assertions made.
+
+## Post-build verification (Muse, 2026-10-29 ~23:15 MDT)
+- Boot smoke: `run.py` serves; `/api/health`, `/api/dashboard`, `/api/finops/summary`, `/` all HTTP 200.
+- Headless-browser pass (Playwright, Chromium): overview, Governance & tokens (AI Activity/Economics/Policies & connectors tabs), and 375px mobile overview all render correctly; API status "● API ready"; ledger shows the $0.004200 test-vector events flagged `estimated`.
+- Fixed the single console error: added inline SVG favicon (`/favicon.ico` 404) — zero console/page errors after.
+- Screenshots (submission assets): `docs/screenshots/01-overview-desktop.png`, `02-governance-desktop.png`, `03-overview-mobile.png`.
+- Suite re-run after favicon change: 47 passed.
