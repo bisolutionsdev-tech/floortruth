@@ -1,0 +1,78 @@
+{
+  "trace_version": "0.3",
+  "synthetic": true,
+  "generated": "2026-10-29",
+  "provider": "mock (LIVE_API_NOT_VERIFIED)",
+  "pricebook_version": "2026-10-29",
+  "steps": [
+    {
+      "step": "capture",
+      "observation_id": "OBS-1050",
+      "synthetic": true
+    },
+    {
+      "step": "correlate",
+      "case_id": "CASE-HANDOFF",
+      "report_count": 5,
+      "shifts": [
+        "Day",
+        "Night",
+        "Swing"
+      ],
+      "evidence_fingerprint": "faf4759d21b34aec..."
+    },
+    {
+      "step": "ai_analysis",
+      "mode": "demo",
+      "provider": "mock",
+      "budget_decision": "ALLOW",
+      "budget_reason": "WITHIN_BUDGET",
+      "inference_cost_usd": "0.004200",
+      "hypotheses": 2,
+      "hypothesis_status": [
+        "UNVERIFIED",
+        "UNVERIFIED"
+      ]
+    },
+    {
+      "step": "human_approval",
+      "status": "Pilot approved",
+      "reviewer_role": "Demo Reviewer",
+      "approval_scope": "Simulated demonstration only; reviewer identity is not authenticated"
+    },
+    {
+      "step": "measure",
+      "delta_minutes": 480,
+      "estimated_gross_value": 280.0,
+      "estimated_net_value": 160.0,
+      "causality": "Descriptive pilot comparison only. No causal attribution without an appropriate control."
+    },
+    {
+      "step": "value",
+      "inference_cost_usd": "0.004200",
+      "modeled_net_usd_micros": 159995800,
+      "roi_percent": 133.3,
+      "attribution_status": "DESCRIPTIVE_ONLY",
+      "evidence_quality": "MEASURED_DESCRIPTIVE",
+      "realization_type": "capacity_equivalent"
+    },
+    {
+      "step": "rollback",
+      "status": "Rolled back",
+      "scope": "Demonstration only"
+    },
+    {
+      "step": "ledger",
+      "inference_events": 1,
+      "total_economic_cost_usd_micros": 4200,
+      "pricebook_version": "2026-10-29",
+      "audit_integrity": "VERIFIED"
+    }
+  ],
+  "notes": [
+    "All records invented. No employer data.",
+    "Inference cost is modeled economic cost, not proof of token-attributable value.",
+    "Attribution stays DESCRIPTIVE_ONLY: no causal claims.",
+    "Hash chain is tamper-evident only, not signed; reviewer role is simulated."
+  ]
+}
