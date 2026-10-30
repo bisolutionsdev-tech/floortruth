@@ -12,6 +12,7 @@ from copy import deepcopy
 from pathlib import Path
 from threading import RLock
 from app.domain import classify, correlate, utc_now
+from migrations import run_migrations
 
 SEED = [
     {"id":"OBS-1041","shift":"Day","channel":"Voice","location":"Zone B","text":"At shift change our station readiness checklist was not completed; startup was delayed again.","time":"2026-10-19T06:10:00Z"},
@@ -51,8 +52,7 @@ class DemoStore:
 
     def _init_db(self):
         with self._conn() as db:
-            db.execute("CREATE TABLE IF NOT EXISTS events (id INTEGER PRIMARY KEY AUTOINCREMENT, event_type TEXT NOT NULL, case_id TEXT, timestamp TEXT NOT NULL, payload TEXT NOT NULL, prev_hash TEXT NOT NULL, event_hash TEXT NOT NULL)")
-            db.execute("CREATE INDEX IF NOT EXISTS idx_event_case ON events(case_id)")
+            run_migrations(db)
 
     def _events(self):
         with self._conn() as db:
@@ -164,6 +164,15 @@ class DemoStore:
     def audit_model(self, cid, status, model, evidence_ids, usage=None):
         self._append("MODEL_EVALUATED",cid,{"result":status,"model":model,"evidence_ids":evidence_ids,
                      "usage":usage or {},"synthetic":True,"model_output_stored":False})
+
+    def audit_inference(self, cid, request_id, provider, model, evidence_fingerprint,
+                        usage_source, cost_usd_micros, budget_decision_id, workflow_run_id):
+        """Link a ledger inference event into the hash-chained case timeline."""
+        self._append("INFERENCE_RECORDED",cid,{"request_id":request_id,"provider":provider,
+                     "model":model,"evidence_fingerprint":evidence_fingerprint,
+                     "usage_source":usage_source,"estimated_cost_usd_micros":cost_usd_micros,
+                     "budget_decision_id":budget_decision_id,"workflow_run_id":workflow_run_id,
+                     "synthetic":True,"model_output_stored":False})
 
     def cases(self):
         result=[]
