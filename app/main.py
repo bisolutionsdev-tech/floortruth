@@ -245,6 +245,7 @@ def ai_case(case_id:str):
 
     response={"mode":result.get("mode"),"provider":provider.name,
               "model":result.get("model"),"synthetic":True,
+              "evidence_ids":result.get("evidence_ids",[]),
               "evidence_fingerprint":fingerprint,
               "budget_decision":{"decision":decision.decision,"reason":decision.reason,
                                  "quoted_max_usd":micros_to_usd_str(decision.quoted_max_usd_micros),
