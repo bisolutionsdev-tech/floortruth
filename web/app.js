@@ -20,7 +20,7 @@ function cases(){return head('EVIDENCE CORRELATION','Patterns, not assumptions.'
 function caseDetail(id){const c=state.cases.find(x=>x.id===id);if(!c)return cases();let evidence=state.signals.filter(s=>c.evidence_ids.includes(s.id));return head('EVIDENCE CASE / '+c.id,esc(c.title),'Corroboration: '+esc(c.corroboration)+' · '+c.report_count+' source records · '+c.shifts.length+' shifts',`<button class="button ghost" data-page="cases">← All cases</button>`)+`<div class="detail-grid"><div><section class="panel"><div class="panel-head"><h2>Provenance ledger</h2>${chip('Source-linked')}</div><div class="evidence-list">${evidence.map(s=>`<div class="evidence-item"><span class="id">${s.id}</span><p>${esc(s.text)}</p><small>${s.shift} shift · ${s.channel} · ${s.location}</small></div>`).join('')}</div></section><section class="panel"><div class="panel-head"><h2>Competing explanations</h2>${chip('Unverified','gold')}</div>${c.hypotheses.map((h,i)=>`<div class="hypothesis"><div class="id">HYPOTHESIS ${i+1}</div><p>${esc(h.claim)}</p><small><b>Disconfirming test:</b> ${esc(h.verify)}</small></div>`).join('')}<div class="banner"><b>Missing evidence:</b> ${esc(c.missing_evidence)}</div></section></div><div><section class="panel"><div class="panel-head"><h2>Decision gate</h2></div><p class="subhead">A model may suggest, but cannot authorize an intervention.</p><div style="margin:18px 0">${chip(c.status,['Pilot approved','Measured'].includes(c.status)?'':'gold')}</div><div class="feature-box"><h3>Human optionality</h3><p>Approve, challenge, defer, or revoke an operational recommendation. This prototype only simulates a pilot.</p></div><div class="actions">${['Pilot approved','Measured'].includes(c.status)?`<button class="button ghost" data-page="experiments">Measure pilot →</button>`:`<button class="button" data-approve="${c.id}">Approve demo pilot</button>`}<button class="button ghost" data-ai="${c.id}">Ask Meta adapter</button></div></section><section class="panel"><div class="panel-head"><h2>Evaluation contract</h2></div><div class="activity-list"><div class="activity-item"><div class="activity-tick">✓</div><div><b>Evidence is inspectable</b><p>Source IDs remain linked to every finding</p></div></div><div class="activity-item"><div class="activity-tick">✓</div><div><b>Causality is not invented</b><p>Observational patterns are hypotheses</p></div></div><div class="activity-item"><div class="activity-tick">✓</div><div><b>Action requires approval</b><p>No system may change real operations</p></div></div></div></section><section class="panel"><div class="panel-head"><h2>Decision & evidence trail</h2>${chip('Hash-linked demo log','gray')}</div><p class="subhead">Actions persist across restarts. Hashes detect changes but are not authenticated signatures.</p><div class="activity-list">${c.timeline?.length?c.timeline.slice().reverse().map(ev=>`<div class="activity-item"><div class="activity-tick">↳</div><div><b>${esc(ev.event_type.replaceAll('_',' '))}</b><p>${esc(ev.timestamp)} · ${esc(ev.event_hash.slice(0,12))}…</p></div></div>`).join(''):'<div class="empty">No decision events yet.</div>'}</div>${['Pilot approved','Measured','Needs re-review'].includes(c.status)?`<div class="actions"><button class="button ghost" data-rollback="${c.id}">↩ Roll back demo pilot</button></div>`:''}</section></div></div>`}
 function experiments(){const c=state.cases.find(x=>['Pilot approved','Measured'].includes(x.status))||state.cases[0];const result=c?.experiment;return head('OUTCOME MEASUREMENT','Measure what changed.','Review baseline, pilot cost, and measurement limitations before claiming value.',`<button class="button ghost" data-case="${c.id}">View evidence case ↗</button>`)+`<div class="grid-2"><div><div class="panel"><div class="panel-head"><h2>Controlled pilot worksheet</h2>${chip(c.status,['Pilot approved','Measured'].includes(c.status)?'':'gold')}</div><p class="subhead">Selected case: <strong>${esc(c.title)}</strong></p><div class="divider"></div><form id="measurementForm"><div class="form-grid"><div class="field"><label for="baseline">Baseline minutes / shift</label><input id="baseline" type="number" min="0" step=".5" value="34" required></div><div class="field"><label for="observed">Pilot minutes / shift</label><input id="observed" type="number" min="0" step=".5" value="22" required></div><div class="field"><label for="periods">Observed shifts</label><input id="periods" type="number" min="1" step="1" value="40" required></div><div class="field"><label for="hourly">Assumed cost / hour ($)</label><input id="hourly" type="number" min="0" step=".5" value="35" required></div><div class="field"><label for="pilotcost">Intervention cost ($)</label><input id="pilotcost" type="number" min="0" step=".5" value="120" required></div></div><p class="field-hint">All values are invented. This is a descriptive estimate; no causal effectiveness is asserted.</p><div class="actions"><button class="button" type="submit" ${!['Pilot approved','Measured'].includes(c.status)?'disabled':''}>Calculate and record estimate →</button>${!['Pilot approved','Measured'].includes(c.status)?`<button class="button ghost" type="button" data-approve="${c.id}">Approve first</button>`:''}</div></form></div></div><div><div class="panel"><div class="panel-head"><h2>Outcome summary</h2></div>${result?`<div class="metric-value" style="color:${result.estimated_net_value>=0?'var(--mint)':'var(--danger)'}">${money(result.estimated_net_value)}</div><div class="stats-label">Modeled net value · synthetic</div><div class="divider"></div><div class="activity-list"><div class="activity-item"><div class="activity-tick">↘</div><div><b>${result.delta_minutes} modeled minutes</b><p>Baseline minus observed across ${result.periods} periods</p></div></div><div class="activity-item"><div class="activity-tick">$</div><div><b>${money(result.estimated_gross_value)} gross value</b><p>At $${result.pilot_cost} intervention cost</p></div></div></div>`:`<div class="empty">No modeled outcome yet. Approve a synthetic pilot and calculate the worksheet.</div>`}<div class="divider"></div><div class="feature-box"><h3>Evidence standard</h3><p>Before/after estimates do not prove improvement was caused by the pilot. Real deployment requires suitable comparison groups, safety checks, and provenance.</p></div></div></div></div>`}
 function architecture(){return head('SYSTEM DESIGN / REFERENCE MODEL','A small interface. A rigorous core.','Vendor-neutral orchestration, inspectable evidence, and explicit decision boundaries.')+`<div class="panel"><div class="flow-steps"><div class="flow-step"><span>01 / CAPTURE</span><b>Frontline signals</b><p>Mobile-first text and optional browser voice · structured metadata</p></div><div class="flow-step"><span>02 / EVIDENCE</span><b>Correlation engine</b><p>Patterns, alternative explanations and source-linked provenance</p></div><div class="flow-step"><span>03 / GOVERN</span><b>Human review</b><p>Approval gates, exception handling, and reversible actions</p></div><div class="flow-step"><span>04 / LEARN</span><b>Impact measurement</b><p>Transparent assumptions, outcome comparison and audit history</p></div></div></div><div class="grid-2"><div class="panel"><div class="panel-head"><h2>Implementation layers</h2></div><div class="arch-stack"><div class="arch-layer"><div class="arch-index">01</div><div><h3>Experience layer</h3><p>Accessible frontend · role-shaped views · progressive disclosure</p></div></div><div class="arch-arrow">↓</div><div class="arch-layer"><div class="arch-index">02</div><div><h3>Governed application API</h3><p>Validation · provenance · authorization gates · typed events</p></div></div><div class="arch-arrow">↓</div><div class="arch-layer"><div class="arch-index">03</div><div><h3>Evidence & reasoning services</h3><p>Deterministic baselines · optional Meta Muse Spark hypotheses</p></div></div><div class="arch-arrow">↓</div><div class="arch-layer"><div class="arch-index">04</div><div><h3>Persistent knowledge layer (planned)</h3><p>Observation ledger · case links · decision records · experiments</p></div></div></div></div><div class="panel"><div class="panel-head"><h2>Critical invariants</h2></div><div class="activity-list">${[['Provenance','Every finding points to source observations'],['No invented causality','Models propose hypotheses, not verified causes'],['Human decision authority','Consequential actions require an authorized reviewer'],['Privacy by design','No individual productivity rankings; minimum necessary data'],['Recoverability','An intervention must be auditable and reversible'],['Vendor optionality','Model providers remain replaceable behind adapters']].map((x,i)=>`<div class="activity-item"><div class="activity-tick">${i+1}</div><div><b>${x[0]}</b><p>${x[1]}</p></div></div>`).join('')}</div><div class="divider"></div><div class="feature-box"><h3>Meta Model API connector</h3><p>Official Muse Spark endpoint prepared. Disabled by default, server-side key only. This UI functions without external inference.</p></div></div></div><div class="banner"><b>Prototype limitations:</b> ephemeral local state, rule-based topic matching, no deployed authentication or production safety case. See docs/ARCHITECTURE.md for explicit development gates.</div>`}
-function render(){document.querySelectorAll('[data-page]').forEach(b=>b.classList.toggle('nav-active',b.dataset.page===state.page));const map={overview:'Overview',signals:'Signal inbox',cases:'Evidence cases',detail:'Case review',experiments:'Experiments',architecture:'System architecture'};$('#breadcrumb').textContent=map[state.page];$('#content').innerHTML=({overview,signals,cases,detail:()=>caseDetail(state.selected),experiments,architecture}[state.page]||overview)();$('#sidebar').classList.remove('open');}
+function render(){document.querySelectorAll('[data-page]').forEach(b=>b.classList.toggle('nav-active',b.dataset.page===state.page));const map={overview:'Overview',signals:'Signal inbox',cases:'Evidence cases',detail:'Case review',experiments:'Experiments',governance:'Governance & tokens',architecture:'System architecture'};$('#breadcrumb').textContent=map[state.page];$('#content').innerHTML=({overview,signals,cases,detail:()=>caseDetail(state.selected),experiments,governance,architecture}[state.page]||overview)();$('#sidebar').classList.remove('open');if(state.page==='governance')loadGovernance();if(state.page==='detail')loadCaseExtras(state.selected);}
 async function goto(page){state.page=page;render();window.scrollTo(0,0)}
 function modal(){const overlay=document.createElement('div');overlay.className='drawer-backdrop';overlay.id='modal';overlay.innerHTML=`<section class="drawer" role="dialog" aria-modal="true" aria-label="Capture synthetic observation"><div class="drawer-head"><div><div class="eyebrow">CAPTURE / SYNTHETIC ONLY</div><h2>New observation</h2></div><button id="closeModal" aria-label="Close dialog">×</button></div><p class="subhead" style="margin-bottom:23px">Describe an <b>invented</b> operational observation. Do not submit real company or personal information.</p><form id="captureForm"><div class="field"><label for="observation">What happened?</label><textarea id="observation" maxlength="1000" minlength="15" required placeholder="Example: The workstation readiness checklist was skipped at shift handoff, creating a delayed startup…"></textarea><button class="button ghost small" style="justify-self:start" id="voiceStart" type="button">◉ Dictate (when supported)</button></div><div class="form-grid"><div class="field"><label for="shift">Shift</label><select id="shift"><option>Day</option><option>Swing</option><option>Night</option></select></div><div class="field"><label for="location">Fictional area</label><select id="location"><option>Zone B</option><option>Zone C</option><option>Training</option><option>Demo area</option></select></div></div><p class="field-hint">A simple demo keyword engine groups topics; it is not presented as an AI inference result.</p><div class="actions"><button class="button" type="submit">Add synthetic observation →</button><button class="button ghost" type="button" id="cancelModal">Cancel</button></div></form></section>`;document.body.appendChild(overlay);const close=()=>overlay.remove();$('#closeModal').onclick=close;$('#cancelModal').onclick=close;overlay.addEventListener('click',e=>{if(e.target===overlay)close()});let dictated=false;$('#voiceStart').onclick=()=>{const R=window.SpeechRecognition||window.webkitSpeechRecognition;if(!R){notify('Speech recognition is unavailable in this browser. Type an invented example instead.');return}const recognition=new R();recognition.lang='en-US';recognition.onresult=e=>{$('#observation').value+=(' '+e.results[0][0].transcript);dictated=true};recognition.onerror=()=>notify('Voice capture did not complete.');recognition.start();notify('Listening. Speak an invented demo observation only.')};$('#captureForm').onsubmit=async e=>{e.preventDefault();try{await api('/signals',{method:'POST',body:JSON.stringify({text:$('#observation').value,shift:$('#shift').value,channel:dictated?'Voice':'Text',location:$('#location').value})});close();notify('Synthetic signal captured; correlation refreshed');await load()}catch(err){notify(err.message)}}}
 function resultModal(title,text){const div=document.createElement('div');div.className='drawer-backdrop';div.id='modal';div.innerHTML=`<section class="drawer" role="dialog" aria-modal="true"><div class="drawer-head"><h2>${esc(title)}</h2><button id="closeModal">×</button></div><pre class="result">${esc(text)}</pre><p class="field-hint">This material is advisory. Do not treat unsupported hypotheses as verified operational facts.</p></section>`;document.body.appendChild(div);div.querySelector('#closeModal').onclick=()=>div.remove();div.onclick=e=>{if(e.target===div)div.remove()}}
@@ -28,3 +28,123 @@ document.body.addEventListener('click',async e=>{const b=e.target.closest('butto
 document.body.addEventListener('submit',async e=>{if(e.target.id!=='measurementForm')return;e.preventDefault();const c=state.cases.find(x=>['Pilot approved','Measured'].includes(x.status))||state.cases[0];try{await api(`/cases/${c.id}/measure`,{method:'POST',body:JSON.stringify({baseline_minutes:Number($('#baseline').value),observed_minutes:Number($('#observed').value),periods:Number($('#periods').value),cost_per_hour:Number($('#hourly').value),pilot_cost:Number($('#pilotcost').value)})});notify('Synthetic outcome recorded; no causal claim inferred');await load()}catch(err){notify(err.message)}});
 $('#mobileMenu').addEventListener('click',()=>$('#sidebar').classList.toggle('open'));
 load();
+
+/* ---- v0.3 Governance & Token Economics ---- */
+state.govTab = state.govTab || 'activity';
+state.gov = null;
+const fmtMicros = (m) => (m === null || m === undefined) ? '<span class="unknown">unknown</span>' : '$' + (m/1000000).toFixed(6);
+const fmtTokens = (t) => (t === null || t === undefined) ? '<span class="unknown">n/a</span>' : Number(t).toLocaleString();
+const srcChip = (s) => s === 'reported' ? chip('reported','') : s === 'estimated' ? chip('estimated','gold') : chip('not reported','gray');
+const decChip = (d) => d === 'ALLOW' ? chip('ALLOW','') : d === 'WARN' ? chip('WARN','gold') : chip('HOLD','danger');
+
+async function loadGovernance(){
+  try{
+    const [summary, ledger, policies, decisions, integrations] = await Promise.all([
+      api('/finops/summary'), api('/finops/ledger?limit=50'), api('/governance/policies'),
+      api('/governance/decisions?limit=50'), api('/integrations')]);
+    state.gov = {summary, ledger, policies, decisions, integrations};
+  }catch(e){ state.gov = {error: e.message}; }
+  if(state.page === 'governance') renderGovOnly();
+}
+function renderGovOnly(){
+  const el = $('#govBody');
+  if(el && state.gov) el.innerHTML = govBody();
+}
+function governance(){
+  const tabs = [['activity','AI Activity'],['economics','Economics'],['policies','Policies & connectors']];
+  return head('GOVERNANCE & TOKEN ECONOMICS','Every token accounted for.',
+    'Deterministic budgets gate every model call. Spend is observed cost — not proof of value. All figures synthetic.',
+    chip('SYNTHETIC DEMO','danger'))
+    + `<div class="tab-row" role="tablist">${tabs.map(([k,l]) =>
+      `<button role="tab" class="${state.govTab===k?'active':''}" data-govtab="${k}">${l}</button>`).join('')}</div>
+      <div id="govBody">${state.gov ? govBody() : '<div class="panel"><p class="subhead">Loading ledger…</p></div>'}</div>
+      <div class="banner"><b>Note:</b> token spend is observed/estimated cost; value attribution to tokens is not established.</div>`;
+}
+function govBody(){
+  const g = state.gov;
+  if(g.error) return `<div class="panel"><h2>Ledger unavailable</h2><p class="subhead">${esc(g.error)}</p></div>`;
+  if(state.govTab === 'activity') return govActivity(g);
+  if(state.govTab === 'economics') return govEconomics(g);
+  return govPolicies(g);
+}
+function govActivity(g){
+  const s = g.summary;
+  const rows = g.ledger.items.map(e =>
+    `<tr><td><span class="id">${esc((e.request_id||'').slice(0,8))}…</span></td><td>${esc(e.model||'—')}</td>
+     <td>${fmtTokens(e.input_tokens)} / ${fmtTokens(e.output_tokens)}${e.cached_input_tokens?` <small>(cached ${fmtTokens(e.cached_input_tokens)})</small>`:''}</td>
+     <td>${fmtMicros(e.estimated_cost_usd_micros)}</td><td>${srcChip(e.usage_source)}</td>
+     <td>${esc(e.case_id||'—')}</td><td><small>${esc((e.request_started_at||'').slice(11,19))}</small></td></tr>`).join('');
+  return `<div class="metric-grid">
+    ${metric('Inference events', s.inference_events, 'budget-gated calls', '◈')}
+    ${metric('Input tokens', Number(s.total_input_tokens).toLocaleString(), 'cached: '+Number(s.total_cached_input_tokens).toLocaleString(), '→')}
+    ${metric('Output tokens', Number(s.total_output_tokens).toLocaleString(), s.usage_sources.reported+' reported · '+s.usage_sources.estimated+' estimated · '+s.usage_sources.not_reported+' unreported', '←')}
+    ${metric('Economic cost', '$'+(s.total_economic_cost_usd_micros/1000000).toFixed(4), s.events_with_unknown_cost+' event(s) with unknown cost', '$')}
+    </div>
+    <div class="panel"><div class="panel-head"><h2>Inference event ledger</h2>${chip('exact or estimated usage flagged','gray')}</div>
+    <div class="table-scroll"><table class="table"><thead><tr><th>Request</th><th>Model</th><th>In / out tokens</th><th>Cost</th><th>Usage</th><th>Case</th><th>Time</th></tr></thead>
+    <tbody>${rows || '<tr><td colspan="7" class="empty">No inference events yet. Run “Ask Meta adapter” on a case.</td></tr>'}</tbody></table></div></div>`;
+}
+function govEconomics(g){
+  const s = g.summary;
+  const models = s.by_model.map(m =>
+    `<tr><td>${esc(m.model||'—')}</td><td>${m.events}</td><td>${Number(m.input_tokens).toLocaleString()}</td><td>${Number(m.output_tokens).toLocaleString()}</td><td>${fmtMicros(m.cost_usd_micros)}</td></tr>`).join('');
+  return `<div class="metric-grid">
+    ${metric('Actual AI consumption', s.inference_events+' events', Number(s.total_input_tokens+s.total_output_tokens).toLocaleString()+' tokens', '◈')}
+    ${metric('Estimated inference economic cost', '$'+(s.total_economic_cost_usd_micros/1000000).toFixed(4), 'before credits · pricebook '+esc(s.pricebook_version), '$')}
+    ${metric('Credits remaining / offset', 'not tracked', 'billing relief, not lower compute use', '◌')}
+    ${metric('Attribution quality', 'descriptive only', 'tokens ≠ proven value', '✓')}
+    </div>
+    <div class="panel"><div class="panel-head"><h2>Cost by model</h2>${chip('versioned pricebook','gray')}</div>
+    <div class="table-scroll"><table class="table"><thead><tr><th>Model</th><th>Events</th><th>Input</th><th>Output</th><th>Cost</th></tr></thead>
+    <tbody>${models || '<tr><td colspan="5" class="empty">No modeled spend yet.</td></tr>'}</tbody></table></div>
+    <p class="field-hint">Economic cost is modeled from provider-reported usage and the versioned pricebook. Unknown usage or prices show as unknown — never $0.00. Proposed intervention costs and modeled operational benefits appear on each case's Experiments view.</p></div>`;
+}
+function govPolicies(g){
+  const p = g.policies.policies[0] || {};
+  const lim = (v) => v === null || v === undefined ? '—' : '$'+(v/1000000).toFixed(2);
+  const decs = g.decisions.decisions.map(d =>
+    `<tr><td><small>${esc((d.timestamp||'').slice(11,19))}</small></td><td>${decChip(d.decision)}</td>
+     <td><span class="id">${esc(d.reason)}</span></td><td>${fmtMicros(d.quoted_max_usd_micros)}</td><td>${fmtMicros(d.current_spend_usd_micros)}</td></tr>`).join('');
+  const conns = g.integrations.connectors.map(c =>
+    `<tr><td><b>${esc(c.name)}</b><br><small>${esc(c.connector_id)}</small></td><td>${esc(c.connector_type)}</td>
+     <td>${esc(c.capability)}</td><td>${chip(c.status, c.status==='Available'?'':c.status==='Disabled'?'danger':'gold')}</td></tr>`).join('');
+  return `<div class="metric-grid">
+    ${metric('Daily inference budget', lim(p.daily_limit_usd_micros), 'env: FLOORTRUTH_MAX_MODEL_SPEND_USD', '$')}
+    ${metric('Per-call estimate cap', lim(p.per_call_estimate_cap_usd_micros), 'env: FLOORTRUTH_PER_CALL_ESTIMATE_CAP_USD', '$')}
+    ${metric('Request limit', p.request_limit ?? '—', 'env: FLOORTRUTH_MAX_CALLS_PER_RUN', '#')}
+    ${metric('On limit', p.action_on_limit || 'HOLD', 'denied calls return HTTP 429', '◈')}
+    </div>
+    <div class="panel"><div class="panel-head"><h2>Budget decisions</h2>${chip('recorded pre-call, deterministic','gray')}</div>
+    <div class="table-scroll"><table class="table"><thead><tr><th>Time</th><th>Decision</th><th>Reason</th><th>Quoted max</th><th>Spend then</th></tr></thead>
+    <tbody>${decs || '<tr><td colspan="5" class="empty">No budget decisions yet.</td></tr>'}</tbody></table></div>
+    <p class="field-hint">Human approval events live in each case timeline. Reviewer roles are simulated — not production authorization.</p></div>
+    <div class="panel"><div class="panel-head"><h2>Connector registry</h2>${chip('honest availability labels','gray')}</div>
+    <div class="table-scroll"><table class="table"><thead><tr><th>Connector</th><th>Type</th><th>Capability</th><th>Status</th></tr></thead>
+    <tbody>${conns}</tbody></table></div>
+    <p class="field-hint">Inference provider: <b>${esc(g.integrations.inference_provider.active_provider)}</b> · ${esc(g.integrations.inference_provider.live_api)}. External writes stay disabled.</p></div>`;
+}
+async function loadCaseExtras(caseId){
+  try{
+    const [value, workflows] = await Promise.all([api(`/cases/${caseId}/value`), api(`/cases/${caseId}/workflows`)]);
+    const el = $('#caseFinops');
+    if(!el) return;
+    const a = value.assessment;
+    el.innerHTML = `<div class="panel"><div class="panel-head"><h2>Inference & value drilldown</h2>${chip('SYNTHETIC DEMO','danger')}</div>
+      <div class="metric-grid">
+      ${metric('Case inference cost', fmtMicros(value.inference_cost_usd_micros), value.inference_events_with_unknown_cost+' event(s) unknown cost', '$')}
+      ${metric('Modeled net value', a ? fmtMicros(a.modeled_net_usd_micros) : '—', a ? 'attribution: '+esc(a.attribution_status) : 'no measurement yet', '$')}
+      ${metric('Workflow runs', workflows.workflow_runs.length, workflows.inference_events.length+' inference events', '◈')}
+      </div>
+      ${a ? `<p class="field-hint"><b>Attribution:</b> ${esc(a.attribution_status)} · <b>Evidence quality:</b> ${esc(a.evidence_quality)} · <b>Realization:</b> ${esc(a.realization_type)}<br><b>Caveats:</b> ${(JSON.parse(a.caveats_json)||[]).slice(0,2).map(esc).join('<br>')}</p>` : '<p class="field-hint">Approve and measure a pilot to produce a value assessment.</p>'}
+      <div class="actions"><button class="button ghost" data-page="governance">Open governance ledger →</button></div></div>`;
+  }catch(e){ /* leave placeholder */ }
+}
+document.body.addEventListener('click', e => {
+  const t = e.target.closest('[data-govtab]');
+  if(t){ state.govTab = t.dataset.govtab; renderGovOnly();
+    document.querySelectorAll('[data-govtab]').forEach(b => b.classList.toggle('active', b.dataset.govtab === state.govTab)); }
+});
+const _caseDetailOrig = caseDetail;
+caseDetail = function(id){
+  return _caseDetailOrig(id) + '<div id="caseFinops"><div class="panel"><p class="subhead">Loading inference & value…</p></div></div>';
+};
