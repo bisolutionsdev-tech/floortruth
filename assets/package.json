@@ -1,0 +1,7 @@
+{
+  "name": "floortruth-deck-source",
+  "private": true,
+  "version": "0.1.0",
+  "scripts": {"deck": "node build_deck.js"},
+  "dependencies": {"pptxgenjs": "^3.12.0"}
+}

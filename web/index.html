@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#0b121c" />
+  <title>FloorTruth — Listen. Verify. Improve.</title>
+  <link rel="stylesheet" href="/static/styles.css" />
+</head>
+<body>
+<div class="shell">
+  <aside class="sidebar" id="sidebar">
+    <div class="brand"><div class="brand-icon"><span></span><span></span><span></span></div><div><div class="brand-name">floor<span>truth</span></div><div class="brand-meta">ORGANIZATIONAL INTELLIGENCE</div></div></div>
+    <div class="workspace"><span class="workspace-monogram">R</span><div><b>Recursion Lab</b><small>Research workspace</small></div><span class="chevron">⌄</span></div>
+    <div class="nav-label">WORKSPACE</div>
+    <nav aria-label="Main navigation" id="nav">
+      <button data-page="overview" class="nav-active"><span class="nav-icon">◫</span> Overview</button>
+      <button data-page="signals"><span class="nav-icon">≋</span> Signal inbox <span class="nav-count" id="navSignals">9</span></button>
+      <button data-page="cases"><span class="nav-icon">◇</span> Evidence cases</button>
+      <button data-page="experiments"><span class="nav-icon">⟐</span> Experiments</button>
+      <button data-page="architecture"><span class="nav-icon">⌘</span> System architecture</button>
+    </nav>
+    <div class="nav-label sublabel">DEMONSTRATION</div>
+    <div class="sidebar-note"><span class="note-light"></span><div><b>Synthetic environment</b><p>Invented data only. No employer systems connected.</p></div></div>
+    <div class="sidebar-bottom"><div class="avatar">FT</div><div><b>Demo workspace</b><small>Prototype · v0.2</small></div></div>
+  </aside>
+  <main class="main">
+    <header class="topbar"><button class="mobile-menu" id="mobileMenu" aria-label="Open menu">☰</button><span class="breadcrumb">RECURSION LAB <span>/</span> <strong id="breadcrumb">Overview</strong></span><div class="top-actions"><span class="env-chip"><i></i> SYNTHETIC DATA</span><span id="apiStatus" class="status-online">● API ready</span></div></header>
+    <div class="content" id="content"><div class="loading">Loading synthetic workspace…</div></div>
+  </main>
+</div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+<script type="module" src="/static/app.js"></script>
+</body>
+</html>
