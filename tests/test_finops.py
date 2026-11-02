@@ -67,6 +67,75 @@ def test_unknown_usage_is_null_not_zero(client):
     assert r["estimated_cost_usd"] is None
 
 
+def test_unavailable_inference_is_recorded_as_failed_workflow(client, monkeypatch):
+    monkeypatch.setenv("MODEL_API_KEY", "test-key")
+    monkeypatch.setenv("FLOORTRUTH_ENABLE_MODEL_API", "true")
+    monkeypatch.setattr(main.meta_chat.MetaChatProvider, "analyze", lambda *args: {
+        "mode": "unavailable", "model": "muse-spark-1.3", "error_type": "HTTPError",
+        "text": "Inference unavailable", "usage": {"usage_source": "not_reported"},
+    })
+    response = client.post("/api/cases/CASE-HANDOFF/ai").json()
+    assert response["text"] == "Inference unavailable"
+    data = client.get("/api/cases/CASE-HANDOFF/workflows").json()
+    assert data["workflow_runs"][0]["status"] == "failed"
+    assert data["inference_events"][0]["status"] == "unavailable"
+    assert data["inference_events"][0]["error_class"] == "HTTPError"
+    assert data["inference_events"][0]["estimated_cost_usd_micros"] is None
+    value = client.get("/api/cases/CASE-HANDOFF/value").json()
+    assert value["inference_cost_usd_micros"] is None
+    assert value["inference_events_with_unknown_cost"] == 1
+    assert client.get("/api/finops/summary").json()["events_with_unknown_cost"] == 1
+
+
+def test_live_model_price_used_for_quote_and_ledger(client, monkeypatch):
+    monkeypatch.setenv("MODEL_API_KEY", "test-key")
+    monkeypatch.setenv("FLOORTRUTH_ENABLE_MODEL_API", "true")
+    monkeypatch.setenv("META_MODEL", "muse-spark-1.2")
+    with main.finops._conn() as db:
+        db.execute("UPDATE pricebook_entries SET rate_per_unit_micros=2000000 "
+                   "WHERE model='muse-spark-1.2' AND meter='input_text'")
+    monkeypatch.setattr(main.meta_chat.MetaChatProvider, "analyze", lambda *args: {
+        "mode": "meta", "model": "muse-spark-1.2", "usage": {
+            "input_tokens": 2000, "output_tokens": 400, "usage_source": "reported"},
+    })
+    response = client.post("/api/cases/CASE-HANDOFF/ai").json()
+    assert response["budget_decision"]["quoted_max_usd"] == "0.005700"
+    assert response["inference_cost_usd_micros"] == 5700
+
+
+def test_partial_live_usage_has_unknown_total_cost(client, monkeypatch):
+    monkeypatch.setenv("MODEL_API_KEY", "test-key")
+    monkeypatch.setenv("FLOORTRUTH_ENABLE_MODEL_API", "true")
+    monkeypatch.setattr(main.meta_chat.MetaChatProvider, "analyze", lambda *args: {
+        "mode": "meta", "model": "muse-spark-1.3", "usage": {
+            "input_tokens": 2000, "output_tokens": None, "usage_source": "reported"},
+    })
+    response = client.post("/api/cases/CASE-HANDOFF/ai").json()
+    assert response["inference_cost_usd_micros"] is None
+
+
+def test_invalid_model_output_still_records_reported_usage(client, monkeypatch):
+    from io import BytesIO
+    monkeypatch.setenv("MODEL_API_KEY", "test-key")
+    monkeypatch.setenv("FLOORTRUTH_ENABLE_MODEL_API", "true")
+    payload = {"choices": [{"message": {"content": "{}"}}],
+               "usage": {"prompt_tokens": 2000, "completion_tokens": 400}}
+    monkeypatch.setattr(main.meta_chat.meta_adapter, "urlopen",
+                        lambda *args, **kwargs: BytesIO(json.dumps(payload).encode()))
+    response = client.post("/api/cases/CASE-HANDOFF/ai").json()
+    assert response["mode"] == "unavailable"
+    event = client.get("/api/finops/ledger").json()["items"][0]
+    assert event["status"] == "unavailable"
+    assert event["usage_source"] == "reported"
+    assert event["estimated_cost_usd_micros"] == 4200
+    summary = client.get("/api/finops/summary").json()
+    assert summary["total_economic_cost_usd_micros"] == 4200
+    assert summary["total_input_tokens"] == 2000
+    assert summary["by_model"][0]["cost_usd_micros"] == 4200
+    assert main.finops.spend_since("2000-01-01T00:00:00+00:00") == (4200, 1)
+    assert client.get("/api/cases/CASE-HANDOFF/value").json()["inference_cost_usd_micros"] == 4200
+
+
 def test_invalid_usage_rejected():
     with main.finops._conn() as db:
         with pytest.raises(InvalidUsageError):

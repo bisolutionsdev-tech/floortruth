@@ -78,9 +78,12 @@ def suggest(case, signals):
     }
     req=Request(API_URL,data=json.dumps(request_payload).encode('utf-8'),headers={
         "Authorization":f"Bearer {os.environ['MODEL_API_KEY']}","Content-Type":"application/json"},method="POST")
+    usage = {}
     try:
         with urlopen(req,timeout=40) as response:
             data=json.load(response)
+        # Provider usage may be billable even if the output fails validation.
+        usage = data.get("usage") or {}
         content=data["choices"][0]["message"]["content"]
         parsed=validate_grounding(json.loads(content),ids)
         return {"mode":"meta","model":model,"analysis":parsed,"text":format_analysis(parsed),
@@ -88,7 +91,7 @@ def suggest(case, signals):
                 "warning":"Structured output validated and IDs verified; explanations remain unproven."}
     except (HTTPError,URLError,KeyError,ValueError,TypeError,TimeoutError,IndexError) as exc:
         return {"mode":"unavailable","model":model,"text":"Inference unavailable or model output failed local provenance validation; no hypotheses were promoted.",
-                "error_type":type(exc).__name__,"evidence_ids":sorted(ids)}
+                "error_type":type(exc).__name__,"evidence_ids":sorted(ids),"usage":usage}
 
 
 def format_analysis(data):

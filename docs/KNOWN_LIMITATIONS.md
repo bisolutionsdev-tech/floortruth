@@ -18,7 +18,7 @@ Honest accounting of what this build is not. Nothing here is marketed as functio
   Attribution never exceeds `DESCRIPTIVE_ONLY` in this build.
 
 ## Governance & security
-- Reviewer role is **simulated** (user-supplied label). No authentication or authorization.
+- Reviewer role is **simulated** (user-supplied label). The optional shared-password demo gate does not authenticate individual reviewers or provide role-based authorization. See `docs/DEMO_ACCESS.md`.
 - Hash-chained events are **tamper-evident only** — not cryptographically signed,
   not access-controlled, not an immutable ledger.
 - Budget policies are demo defaults from environment variables; no multi-tenant

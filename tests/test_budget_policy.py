@@ -104,6 +104,19 @@ def test_hold_precedes_model_call(client, monkeypatch):
     assert runs and runs[0]["status"] == "held"
 
 
+def test_recorded_calls_and_legacy_timestamps_count_toward_budget(client):
+    with main.finops._conn() as db:
+        db.execute("UPDATE budget_policies SET daily_limit_usd_micros=? WHERE id='default-global'", (5000,))
+    assert client.post("/api/cases/CASE-HANDOFF/ai").status_code == 200
+    # Older stored events may lack the timestamp; their workflow time is usable.
+    with main.finops._conn() as db:
+        db.execute("UPDATE inference_events SET request_started_at=NULL")
+    response = client.post("/api/cases/CASE-HANDOFF/ai")
+    assert response.status_code == 429
+    assert response.json()["detail"]["reason"] == budget_policy.REASON_DAILY_LIMIT
+    assert response.json()["detail"]["current_spend_usd"] == "0.004200"
+
+
 def test_duplicate_callback_does_not_double_post():
     evt = InferenceEventRecord(id="evt-1", request_id="req-dup", attempt_no=1,
                                operation="hypothesis_generation", provider="mock",

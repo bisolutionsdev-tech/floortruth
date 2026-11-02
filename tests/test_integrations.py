@@ -57,6 +57,17 @@ def test_provider_status_is_honest(client):
     assert status["live_api"] == "LIVE_API_NOT_VERIFIED"
 
 
+def test_provider_preserves_zero_reported_tokens(monkeypatch):
+    monkeypatch.setattr(main.meta_chat.meta_adapter, "enabled", lambda: True)
+    monkeypatch.setattr(main.meta_chat.meta_adapter, "suggest", lambda *args: {
+        "mode": "meta", "model": "muse-spark-1.3",
+        "usage": {"prompt_tokens": 0, "completion_tokens": 0},
+    })
+    result = main.meta_chat.MetaChatProvider().analyze({"id": "C", "title": "t"}, [], "fp")
+    assert result["usage"]["input_tokens"] == 0
+    assert result["usage"]["output_tokens"] == 0
+
+
 def test_contracts_reject_bad_batches():
     with pytest.raises(ValidationError):
         ObservationBatch(batch_id="b", source_system="s", records="not-a-list",

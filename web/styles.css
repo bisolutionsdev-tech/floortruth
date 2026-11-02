@@ -12,3 +12,6 @@
   .tab-row button{flex:1 1 auto;text-align:center;padding:10px 8px}
   .metric-grid{grid-template-columns:1fr 1fr}
 }
+
+/* Keyboard-visible report download link. */
+a.button{text-decoration:none}a.button:focus-visible{outline:2px solid var(--mint);outline-offset:2px}

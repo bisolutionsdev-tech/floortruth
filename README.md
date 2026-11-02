@@ -19,6 +19,8 @@ python run.py
 
 Open **http://127.0.0.1:8000**. No front-end build or Meta key required. SQLite demo state is stored at `.floortruth/demo.sqlite3` and survives server restarts. To reset, delete `.floortruth/demo.sqlite3` **while the server is stopped**. All records are fictional.
 
+The app is ungated by default. For an HTTPS-hosted synthetic demo, see [shared-password access](docs/DEMO_ACCESS.md) before exposing it to visitors.
+
 ```bash
 python -m pytest -q   # 47 tests, all offline
 ```

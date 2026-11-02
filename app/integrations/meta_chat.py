@@ -115,8 +115,8 @@ class MetaChatProvider:
             "text": result.get("text"), "evidence_ids": result.get("evidence_ids", []),
             "evidence_fingerprint": evidence_fingerprint,
             "usage": {
-                "input_tokens": usage.get("prompt_tokens") or usage.get("input_tokens"),
-                "output_tokens": usage.get("completion_tokens") or usage.get("output_tokens"),
+                "input_tokens": usage.get("prompt_tokens", usage.get("input_tokens")),
+                "output_tokens": usage.get("completion_tokens", usage.get("output_tokens")),
                 "cached_input_tokens": usage.get("cached_input_tokens", 0),
                 "provider_total_tokens": usage.get("total_tokens"),
                 "raw": usage,
