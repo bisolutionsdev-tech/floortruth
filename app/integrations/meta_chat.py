@@ -1,7 +1,6 @@
-"""Inference provider layer: MetaChatProvider built against the active MockProvider path.
+"""Inference provider layer with optional Meta and deterministic mock paths.
 
-NO Meta API key exists in this environment, so no live calls are attempted here.
-- `MockProvider` is ACTIVE: deterministic, synthetic-only, cites only real
+- `MockProvider` is the default: deterministic, synthetic-only, cites only real
   observation IDs, never approves anything. Its usage figures are ESTIMATED
   (fixed demo vector: 2,000 in / 400 out tokens), not provider-reported.
 - `MetaChatProvider` wraps app.meta_adapter.suggest and becomes active only when
@@ -13,6 +12,7 @@ Model output is advisory (SUGGESTED). Approvals, budgets and arithmetic stay in
 deterministic application code.
 """
 from __future__ import annotations
+import os
 import time
 import uuid
 from typing import Protocol
@@ -109,6 +109,8 @@ class MetaChatProvider:
              "evidence_ids": [s["id"] for s in evidence]}, evidence)
         duration_ms = int((time.monotonic() - started) * 1000)
         usage = result.get("usage") or {}
+        prompt_details = usage.get("prompt_tokens_details") or {}
+        completion_details = usage.get("completion_tokens_details") or {}
         return {
             "mode": result.get("mode"), "provider": "meta",
             "model": result.get("model"), "analysis": result.get("analysis"),
@@ -117,7 +119,8 @@ class MetaChatProvider:
             "usage": {
                 "input_tokens": usage.get("prompt_tokens", usage.get("input_tokens")),
                 "output_tokens": usage.get("completion_tokens", usage.get("output_tokens")),
-                "cached_input_tokens": usage.get("cached_input_tokens", 0),
+                "cached_input_tokens": usage.get("cached_input_tokens", prompt_details.get("cached_tokens")),
+                "reasoning_tokens": completion_details.get("reasoning_tokens"),
                 "provider_total_tokens": usage.get("total_tokens"),
                 "raw": usage,
                 "usage_source": "reported" if usage else "not_reported",
@@ -127,6 +130,8 @@ class MetaChatProvider:
             "request_id": uuid.uuid4().hex,
             "warning": result.get("warning"),
             "error_type": result.get("error_type"),
+            "error_category": result.get("error_category"),
+            "http_status": result.get("http_status"),
         }
 
 
@@ -139,12 +144,15 @@ def select_provider() -> InferenceProvider:
 def provider_status() -> dict:
     live = MetaChatProvider()
     configured = live.is_configured()
+    selected_model = os.getenv("META_MODEL", "muse-spark-1.3")
+    model_allowed = selected_model in meta_adapter.ALLOWED_MODELS
     return {
         "active_provider": "meta" if configured else "mock",
         "meta_configured": configured,
-        "meta_model": "muse-spark-1.3",
+        "meta_model": selected_model if model_allowed else None,
+        "meta_model_allowed": model_allowed,
         "live_api": "LIVE_API_NOT_VERIFIED" if not configured else "configured (unverified this run)",
         "mock_active": not configured,
-        "note": "No Meta API key exists in this environment. Set MODEL_API_KEY + "
-                "FLOORTRUTH_ENABLE_MODEL_API=true per docs/LIVE_API_SMOKE_TEST.md to activate.",
+        "note": ("Meta is configured; live inference has not been verified by this status check."
+                 if configured else "Mock provider selected. Configure the Meta API server-side to activate it."),
     }

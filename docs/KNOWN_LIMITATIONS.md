@@ -21,8 +21,9 @@ Honest accounting of what this build is not. Nothing here is marketed as functio
 - Reviewer role is **simulated** (user-supplied label). The optional shared-password demo gate does not authenticate individual reviewers or provide role-based authorization. See `docs/DEMO_ACCESS.md`.
 - Hash-chained events are **tamper-evident only** — not cryptographically signed,
   not access-controlled, not an immutable ledger.
-- Budget policies are demo defaults from environment variables; no multi-tenant
-  isolation, no real quota enforcement against a billing account.
+- Budget policies use estimated input usage and do not reserve funds for concurrent calls;
+  they are demo controls, not provider-enforced spending limits. No multi-tenant
+  isolation or real quota enforcement against a billing account.
 - Redaction is regex-only (email/phone); not production PII detection.
 
 ## Data & scope

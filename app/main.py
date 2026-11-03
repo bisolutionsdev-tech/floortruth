@@ -14,7 +14,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 from app.domain import measure, redact, utc_now
 from app.store import DemoStore
-from app.meta_adapter import enabled, ALLOWED_MODELS
+from app.meta_adapter import enabled, ALLOWED_MODELS, MAX_COMPLETION_TOKENS
 from app.finops.ledger import FinOpsStore
 from app.finops import policy as budget_policy
 from app.finops import value as value_mod
@@ -230,12 +230,14 @@ def ai_case(case_id:str):
     evidence=[s for s in store.signals if s['id'] in c['evidence_ids']]
     provider=meta_chat.select_provider()
     # The mock vector is priced using the Spark 1.3 demo rate. A live call
-    # must use the selected model's own rate for both quote and ledger.
+    # uses the selected model and completion limit. Input remains an estimate;
+    # the forecast is not a guarantee of total spend.
     quoted_model = os.getenv("META_MODEL", "muse-spark-1.3") if provider.name == "meta" else "muse-spark-1.3"
+    quoted_output_tokens = MAX_COMPLETION_TOKENS if provider.name == "meta" else 400
     if provider.name == "meta" and quoted_model not in ALLOWED_MODELS:
         raise HTTPException(422, "Selected Meta model is outside this demo's allowlist")
     try:
-        quote=finops.estimate(quoted_model,2000,400)
+        quote=finops.estimate(quoted_model,2000,quoted_output_tokens)
     except UnknownPriceError as exc:
         raise HTTPException(503, "No price is available for the selected model; inference was not attempted") from exc
 
@@ -250,7 +252,7 @@ def ai_case(case_id:str):
         finops.get_policy(),current_spend_usd_micros=current_spend,
         current_calls=current_calls,
         projected_cost_usd_micros=quote.cost_usd_micros,
-        projected_tokens=2400,workflow_run_id=run.id,scope="global")
+        projected_tokens=2000 + quoted_output_tokens,workflow_run_id=run.id,scope="global")
     finops.record_budget_decision(decision)
 
     if decision.decision=="HOLD":
@@ -295,6 +297,7 @@ def ai_case(case_id:str):
         error_class=result.get("error_type"),
         input_tokens=usage.get("input_tokens"),output_tokens=usage.get("output_tokens"),
         cached_input_tokens=usage.get("cached_input_tokens"),
+        reasoning_tokens=usage.get("reasoning_tokens"),
         provider_total_tokens=usage.get("provider_total_tokens"),
         raw_usage_json=None,provider_request_id=usage.get("provider_request_id"),
         pricebook_version=PRICEBOOK_VERSION if cost_micros is not None else None,
@@ -330,7 +333,8 @@ def ai_case(case_id:str):
                          "causal_limit":analysis.get("causal_limit"),
                          "warning":result.get("warning")})
     if inference_status != "succeeded":
-        response.update({"error_type":result.get("error_type"),"text":result.get("text")})
+        response.update({"error_type":result.get("error_type"),"text":result.get("text"),
+                         "error_category":result.get("error_category"),"http_status":result.get("http_status")})
     return response
 
 # ---- FinOps API ------------------------------------------------------------

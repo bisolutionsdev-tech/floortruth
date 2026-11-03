@@ -129,9 +129,9 @@ function govPolicies(g){
     ${metric('On limit', p.action_on_limit || 'HOLD', 'denied calls return HTTP 429', '◈')}
     </div>
     <div class="panel"><div class="panel-head"><h2>Budget decisions</h2>${chip('recorded pre-call, deterministic','gray')}</div>
-    <div class="table-scroll"><table class="table"><thead><tr><th>Time</th><th>Decision</th><th>Reason</th><th>Quoted max</th><th>Spend then</th></tr></thead>
+    <div class="table-scroll"><table class="table"><thead><tr><th>Time</th><th>Decision</th><th>Reason</th><th>Estimated call cost</th><th>Spend then</th></tr></thead>
     <tbody>${decs || '<tr><td colspan="5" class="empty">No budget decisions yet.</td></tr>'}</tbody></table></div>
-    <p class="field-hint">Human approval events live in each case timeline. Reviewer roles are simulated — not production authorization.</p></div>
+    <p class="field-hint">Cost quotes are estimates, not spending caps. Human approval events live in each case timeline; reviewer roles are simulated.</p></div>
     <div class="panel"><div class="panel-head"><h2>Connector registry</h2>${chip('honest availability labels','gray')}</div>
     <div class="table-scroll"><table class="table"><thead><tr><th>Connector</th><th>Type</th><th>Capability</th><th>Status</th></tr></thead>
     <tbody>${conns}</tbody></table></div>

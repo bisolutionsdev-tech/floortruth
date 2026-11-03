@@ -57,6 +57,81 @@ def test_provider_status_is_honest(client):
     assert status["live_api"] == "LIVE_API_NOT_VERIFIED"
 
 
+def test_configured_provider_status_reports_selected_model_without_key(client, monkeypatch):
+    monkeypatch.setenv("MODEL_API_KEY", "secret-test-value")
+    monkeypatch.setenv("FLOORTRUTH_ENABLE_MODEL_API", "true")
+    monkeypatch.setenv("META_MODEL", "muse-spark-1.2")
+    status = client.get("/api/integrations").json()["inference_provider"]
+    assert status["meta_model"] == "muse-spark-1.2"
+    assert status["meta_model_allowed"] is True
+    assert status["active_provider"] == "meta"
+    assert "unverified" in status["live_api"]
+    assert "secret-test-value" not in str(status)
+    monkeypatch.setenv("META_MODEL", "secret-test-value")
+    status = client.get("/api/integrations").json()["inference_provider"]
+    assert status["meta_model"] is None
+    assert status["meta_model_allowed"] is False
+    assert "secret-test-value" not in str(status)
+
+
+def test_provider_normalizes_nested_usage_and_preserves_zero(monkeypatch, client):
+    monkeypatch.setenv("MODEL_API_KEY", "test-key")
+    monkeypatch.setenv("FLOORTRUTH_ENABLE_MODEL_API", "true")
+    monkeypatch.setattr(main.meta_chat.meta_adapter, "suggest", lambda *args: {
+        "mode": "meta", "model": "muse-spark-1.3", "usage": {
+            "prompt_tokens": 2000, "completion_tokens": 400,
+            "prompt_tokens_details": {"cached_tokens": 300},
+            "completion_tokens_details": {"reasoning_tokens": 0},
+        },
+    })
+    response = client.post("/api/cases/CASE-HANDOFF/ai")
+    assert response.status_code == 200
+    event = client.get("/api/finops/ledger").json()["items"][0]
+    assert event["cached_input_tokens"] == 300
+    assert event["reasoning_tokens"] == 0
+
+
+@pytest.mark.parametrize("code,category", [(401, "AUTHENTICATION_OR_ACCESS"), (402, "BILLING_OR_CREDITS"),
+                                          (429, "RATE_LIMIT"), (503, "PROVIDER_UNAVAILABLE")])
+def test_meta_http_failures_are_classified_without_exposing_body(client, monkeypatch, code, category):
+    from io import BytesIO
+    from urllib.error import HTTPError
+    monkeypatch.setenv("MODEL_API_KEY", "secret-test-value")
+    monkeypatch.setenv("FLOORTRUTH_ENABLE_MODEL_API", "true")
+    def reject(*args, **kwargs):
+        raise HTTPError("https://api.meta.ai/", code, "secret-test-value", None,
+                        BytesIO(b"secret-test-value"))
+    monkeypatch.setattr(main.meta_chat.meta_adapter, "urlopen", reject)
+    response = client.post("/api/cases/CASE-HANDOFF/ai")
+    data = response.json()
+    assert data["error_category"] == category
+    assert data["http_status"] == code
+    assert "secret-test-value" not in response.text
+
+
+def test_live_request_caps_completion_and_handles_truncation(client, monkeypatch):
+    import json
+    from io import BytesIO
+    monkeypatch.setenv("MODEL_API_KEY", "test-key")
+    monkeypatch.setenv("FLOORTRUTH_ENABLE_MODEL_API", "true")
+    seen = {}
+    def incomplete(request, timeout):
+        seen.update(json.loads(request.data))
+        return BytesIO(json.dumps({
+            "choices": [{"finish_reason": "length", "message": {"content": "partial"}}],
+            "usage": {"prompt_tokens": 2000, "completion_tokens": 1600},
+        }).encode())
+    monkeypatch.setattr(main.meta_chat.meta_adapter, "urlopen", incomplete)
+    result = client.post("/api/cases/CASE-HANDOFF/ai").json()
+    assert seen["max_completion_tokens"] == main.meta_chat.meta_adapter.MAX_COMPLETION_TOKENS == 1600
+    assert seen["reasoning_effort"] == "low"
+    assert result["error_category"] == "OUTPUT_LIMIT"
+    assert result.get("analysis") is None
+    event = client.get("/api/finops/ledger").json()["items"][0]
+    assert event["status"] == "unavailable"
+    assert event["output_tokens"] == 1600
+
+
 def test_provider_preserves_zero_reported_tokens(monkeypatch):
     monkeypatch.setattr(main.meta_chat.meta_adapter, "enabled", lambda: True)
     monkeypatch.setattr(main.meta_chat.meta_adapter, "suggest", lambda *args: {

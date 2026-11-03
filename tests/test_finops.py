@@ -99,7 +99,8 @@ def test_live_model_price_used_for_quote_and_ledger(client, monkeypatch):
             "input_tokens": 2000, "output_tokens": 400, "usage_source": "reported"},
     })
     response = client.post("/api/cases/CASE-HANDOFF/ai").json()
-    assert response["budget_decision"]["quoted_max_usd"] == "0.005700"
+    # 2,000 forecast input tokens and the 1,600-token live completion cap.
+    assert response["budget_decision"]["quoted_max_usd"] == "0.010800"
     assert response["inference_cost_usd_micros"] == 5700
 
 
