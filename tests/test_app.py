@@ -17,6 +17,12 @@ def isolated_store(tmp_path, monkeypatch):
 @pytest.fixture
 def client(): return TestClient(main.app)
 
+def test_javascript_module_has_browser_compatible_mime_type(client):
+    response = client.get('/static/app.js')
+    assert response.status_code == 200
+    assert response.headers['content-type'].split(';')[0] == 'text/javascript'
+    assert 'function render' in response.text
+
 def _fingerprint(client, cid='CASE-HANDOFF'):
     return client.get(f'/api/cases/{cid}').json()['evidence_fingerprint']
 

@@ -3,8 +3,9 @@
 Honest accounting of what this build is not. Nothing here is marketed as functional.
 
 ## Inference & providers
-- **No live Meta test has run.** `LIVE_API_NOT_VERIFIED`; the mock provider is active.
-  Meta processing mode (Standard vs Contributor) cannot be verified in this environment.
+- One local synthetic Meta smoke test passed on 2026-11-04 after the owner confirmed
+  Standard mode. Hosted deployment, ongoing availability and future model responses
+  remain unverified; mock is the default without an enabled server-side key.
 - Mock usage (2,000 in / 400 out tokens) is **estimated**, not provider-reported.
 - Only Chat Completions is wrapped. Responses API, voice transcription, SAM 3.1,
   and image generation are typed hooks/stubs, not implementations.
@@ -18,11 +19,12 @@ Honest accounting of what this build is not. Nothing here is marketed as functio
   Attribution never exceeds `DESCRIPTIVE_ONLY` in this build.
 
 ## Governance & security
-- Reviewer role is **simulated** (user-supplied label). No authentication or authorization.
+- Reviewer role is **simulated** (user-supplied label). The optional shared-password demo gate does not authenticate individual reviewers or provide role-based authorization. See `docs/DEMO_ACCESS.md`.
 - Hash-chained events are **tamper-evident only** — not cryptographically signed,
   not access-controlled, not an immutable ledger.
-- Budget policies are demo defaults from environment variables; no multi-tenant
-  isolation, no real quota enforcement against a billing account.
+- Budget policies use estimated input usage and do not reserve funds for concurrent calls;
+  they are demo controls, not provider-enforced spending limits. No multi-tenant
+  isolation or real quota enforcement against a billing account.
 - Redaction is regex-only (email/phone); not production PII detection.
 
 ## Data & scope

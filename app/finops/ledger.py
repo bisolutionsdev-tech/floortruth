@@ -75,7 +75,7 @@ class FinOpsStore:
                 "budget_decision_id","content_logged","synthetic"]
         values = (event.id, event.request_id, event.attempt_no, event.workflow_run_id,
                   event.case_id, event.operation, event.provider, event.model, event.protocol,
-                  event.usage_source, event.request_started_at, event.completed_at,
+                  event.usage_source, event.request_started_at or utc_now(), event.completed_at,
                   event.duration_ms, event.status, event.error_class, event.input_tokens,
                   event.output_tokens, event.cached_input_tokens, event.reasoning_tokens,
                   event.provider_total_tokens, event.raw_usage_json, event.provider_request_id,
@@ -161,22 +161,26 @@ class FinOpsStore:
             return cost_for_usage(db, model, **usage)
     def spend_since(self, since_iso: str, scope_case_id: str | None = None) -> tuple[int, int]:
         """(total_cost_micros of known costs, call_count) for inference events."""
+        # Older demo records omitted request_started_at; recover it from the
+        # linked workflow when available so those attempts remain budgeted.
+        started = ("COALESCE(request_started_at, (SELECT started_at FROM workflow_runs "
+                   "WHERE id=inference_events.workflow_run_id), completed_at)")
         with self._conn() as db:
             if scope_case_id:
                 rows = db.execute(
                     "SELECT estimated_cost_usd_micros FROM inference_events "
-                    "WHERE request_started_at >= ? AND case_id = ? AND status='succeeded'",
+                    f"WHERE {started} >= ? AND case_id = ?",
                     (since_iso, scope_case_id)).fetchall()
                 count = db.execute(
                     "SELECT COUNT(*) FROM inference_events "
-                    "WHERE request_started_at >= ? AND case_id = ?",
+                    f"WHERE {started} >= ? AND case_id = ?",
                     (since_iso, scope_case_id)).fetchone()[0]
             else:
                 rows = db.execute(
                     "SELECT estimated_cost_usd_micros FROM inference_events "
-                    "WHERE request_started_at >= ? AND status='succeeded'", (since_iso,)).fetchall()
+                    f"WHERE {started} >= ?", (since_iso,)).fetchall()
                 count = db.execute(
-                    "SELECT COUNT(*) FROM inference_events WHERE request_started_at >= ?",
+                    f"SELECT COUNT(*) FROM inference_events WHERE {started} >= ?",
                     (since_iso,)).fetchone()[0]
         return sum(r[0] for r in rows if r[0] is not None), count
 
@@ -185,7 +189,7 @@ class FinOpsStore:
         with self._conn() as db:
             rows = db.execute(
                 "SELECT estimated_cost_usd_micros FROM inference_events "
-                "WHERE case_id=? AND status='succeeded'", (case_id,)).fetchall()
+                "WHERE case_id=?", (case_id,)).fetchall()
         known = [r[0] for r in rows if r[0] is not None]
         unknown = len(rows) - len(known)
         return (sum(known) if known else (None if unknown else 0)), unknown
@@ -233,11 +237,11 @@ class FinOpsStore:
                 "SUM(CASE WHEN usage_source='reported' THEN 1 ELSE 0 END), "
                 "SUM(CASE WHEN usage_source='estimated' THEN 1 ELSE 0 END), "
                 "SUM(CASE WHEN usage_source='not_reported' THEN 1 ELSE 0 END) "
-                "FROM inference_events WHERE status='succeeded'").fetchone()
+                "FROM inference_events").fetchone()
             by_model = db.execute(
                 "SELECT model, COUNT(*), COALESCE(SUM(input_tokens),0), "
                 "COALESCE(SUM(output_tokens),0), COALESCE(SUM(estimated_cost_usd_micros),0) "
-                "FROM inference_events WHERE status='succeeded' GROUP BY model").fetchall()
+                "FROM inference_events GROUP BY model").fetchall()
             decisions = db.execute(
                 "SELECT decision, COUNT(*) FROM budget_decisions GROUP BY decision").fetchall()
         return {
@@ -285,7 +289,7 @@ class FinOpsStore:
     def latest_outcome_assessment(self, case_id: str) -> OutcomeAssessmentRecord | None:
         with self._conn() as db:
             row = db.execute("SELECT * FROM outcome_assessments WHERE case_id=? "
-                             "ORDER BY created_at DESC LIMIT 1", (case_id,)).fetchone()
+                             "ORDER BY created_at DESC, rowid DESC LIMIT 1", (case_id,)).fetchone()
         if row is None:
             return None
         return OutcomeAssessmentRecord(**{k: row[k] for k in row.keys()

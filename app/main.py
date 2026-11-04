@@ -7,25 +7,34 @@ All demo data is synthetic; no live Meta calls occur without a configured key.
 """
 from __future__ import annotations
 from pathlib import Path
+import os
 from fastapi import FastAPI, HTTPException, Query
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
-from app.domain import measure, redact
+from app.domain import measure, redact, utc_now
 from app.store import DemoStore
-from app.meta_adapter import enabled
+from app.meta_adapter import enabled, ALLOWED_MODELS, MAX_COMPLETION_TOKENS
 from app.finops.ledger import FinOpsStore
 from app.finops import policy as budget_policy
 from app.finops import value as value_mod
 from app.finops.models import InferenceEventRecord
-from app.finops.pricing import micros_to_usd_str, PRICEBOOK_VERSION
+from app.finops.pricing import micros_to_usd_str, PRICEBOOK_VERSION, UnknownPriceError
 from app.integrations import meta_chat
 from app.integrations import registry as connector_registry
+from app.demo_access import DemoAccessMiddleware
 
 ROOT=Path(__file__).resolve().parent.parent
 app=FastAPI(title="FloorTruth Synthetic Demo API",version="0.2.0")
+app.add_middleware(DemoAccessMiddleware)
 store=DemoStore()
 finops=FinOpsStore()
+# Python's OS MIME registry can map .js to text/plain on Windows. Module
+# scripts require a JavaScript MIME type, regardless of the host registry.
+@app.get("/static/app.js", include_in_schema=False)
+def javascript_app():
+    return FileResponse(ROOT/"web"/"app.js", media_type="text/javascript")
+
 app.mount("/static",StaticFiles(directory=ROOT/"web"),name="static")
 
 class ObservationIn(BaseModel):
@@ -140,14 +149,22 @@ def case_timeline(case_id:str):
 @app.get("/api/audit/verify")
 def verify_audit(): return store.verify_chain()
 
+def _assessment_is_current(case, assessment, inference_micros, unknown):
+    # Assessments are snapshots. Later calls (or unknown costs) can make their
+    # modeled net incomplete even while the case remains measured.
+    return bool(assessment and case['status'] == 'Measured' and not unknown
+                and assessment.inference_cost_usd_micros == inference_micros)
+
 @app.get("/api/cases/{case_id}/value")
 def case_value(case_id:str):
     """Outcome assessment: modeled value WITH recorded inference costs, caveats attached."""
     c=get_case(case_id)
     inference_micros,unknown=finops.case_inference_cost_micros(c['id'])
     assessment=finops.latest_outcome_assessment(c['id'])
+    current=_assessment_is_current(c, assessment, inference_micros, unknown)
     return {"case_id":c['id'],"synthetic":True,
             "status":"assessed" if assessment else "not_measured",
+            "assessment_is_current":current,
             "inference_cost_usd_micros":inference_micros,
             "inference_cost_usd":micros_to_usd_str(inference_micros),
             "inference_events_with_unknown_cost":unknown,
@@ -170,12 +187,59 @@ def case_workflows(case_id:str):
             "outcome_assessment":(lambda a: a.model_dump() if a else None)(
                 finops.latest_outcome_assessment(case_id))}
 
+@app.get("/api/cases/{case_id}/export")
+def export_learning_report(case_id:str):
+    """Download the current synthetic case and its recorded decision history."""
+    case = get_case(case_id)
+    evidence = [s for s in store.signals if s["id"] in case["evidence_ids"]]
+    events = store.timeline(case_id)
+    inference_cost, unknown_costs = finops.case_inference_cost_micros(case_id)
+    assessment = finops.latest_outcome_assessment(case_id)
+    report = {
+        "schema_version": "floortruth-learning-report-v1",
+        "generated_at": utc_now(),
+        "synthetic": True,
+        "case": case,
+        "sources": evidence,
+        "hypothesis_status": "UNVERIFIED; deterministic case hypotheses, not stored model output",
+        "decision_and_outcome_history": events,
+        "audit_integrity": store.verify_chain(),
+        "latest_outcome_assessment": assessment.model_dump() if assessment else None,
+        "assessment_is_current": _assessment_is_current(case, assessment, inference_cost, unknown_costs),
+        "inference_cost_usd_micros": inference_cost,
+        "inference_events_with_unknown_cost": unknown_costs,
+        "limitations": [
+            "All information is fictional and for demonstration only.",
+            "Reviewer identity is not authenticated; approvals are simulated.",
+            "The event chain is not signed or access-controlled.",
+            "Hypotheses are unverified; observed outcomes do not establish causality.",
+            "Inference costs are estimates when usage is estimated; unknown costs are excluded.",
+            "Model outputs are not stored; timeline inference events contain metadata only.",
+        ],
+    }
+    return JSONResponse(report, headers={
+        "Content-Disposition": 'attachment; filename="floortruth-learning-report.json"',
+        "Cache-Control": "no-store",
+    })
+
 @app.post("/api/cases/{case_id}/ai")
 def ai_case(case_id:str):
     """Budget-gated, evidence-linked AI analysis. Deterministic governance first."""
     c=get_case(case_id)
     fingerprint=store.fingerprint(c['id'])
     evidence=[s for s in store.signals if s['id'] in c['evidence_ids']]
+    provider=meta_chat.select_provider()
+    # The mock vector is priced using the Spark 1.3 demo rate. A live call
+    # uses the selected model and completion limit. Input remains an estimate;
+    # the forecast is not a guarantee of total spend.
+    quoted_model = os.getenv("META_MODEL", "muse-spark-1.3") if provider.name == "meta" else "muse-spark-1.3"
+    quoted_output_tokens = MAX_COMPLETION_TOKENS if provider.name == "meta" else 400
+    if provider.name == "meta" and quoted_model not in ALLOWED_MODELS:
+        raise HTTPException(422, "Selected Meta model is outside this demo's allowlist")
+    try:
+        quote=finops.estimate(quoted_model,2000,quoted_output_tokens)
+    except UnknownPriceError as exc:
+        raise HTTPException(503, "No price is available for the selected model; inference was not attempted") from exc
 
     # 1. Open a workflow run carrying the evidence fingerprint.
     run=finops.start_run("case_ai_analysis",case_id=c['id'],
@@ -183,13 +247,12 @@ def ai_case(case_id:str):
                          metadata={"operation":"hypothesis_generation","synthetic":True})
 
     # 2. Pre-call budget decision (deterministic; quote the expected call).
-    quote=finops.estimate("muse-spark-1.3",2000,400)
     current_spend,current_calls=finops.spend_since(budget_policy.day_start_iso())
     decision=budget_policy.evaluate(
         finops.get_policy(),current_spend_usd_micros=current_spend,
         current_calls=current_calls,
         projected_cost_usd_micros=quote.cost_usd_micros,
-        projected_tokens=2400,workflow_run_id=run.id,scope="global")
+        projected_tokens=2000 + quoted_output_tokens,workflow_run_id=run.id,scope="global")
     finops.record_budget_decision(decision)
 
     if decision.decision=="HOLD":
@@ -205,15 +268,14 @@ def ai_case(case_id:str):
             "note":"Deterministic offline baseline remains available; no inference was attempted."})
 
     # 3. Provider call (Meta when configured, otherwise the deterministic mock).
-    provider=meta_chat.select_provider()
     result=provider.analyze(c,evidence,fingerprint)
     usage=result.get("usage") or {}
     usage_source=usage.get("usage_source","not_reported")
 
     # 4. Deterministic cost accounting (never computed by a model).
     cost_micros=None
-    priced_model="muse-spark-1.3"
-    if usage.get("input_tokens") is not None or usage.get("output_tokens") is not None:
+    priced_model=quoted_model if provider.name == "mock" else result.get("model")
+    if priced_model and usage.get("input_tokens") is not None and usage.get("output_tokens") is not None:
         try:
             priced=finops.price_for_usage(
                 priced_model,input_tokens=usage.get("input_tokens"),
@@ -223,21 +285,25 @@ def ai_case(case_id:str):
         except Exception:
             cost_micros=None  # unknown price -> null, never $0.00
 
+    inference_status = "unavailable" if result.get("mode") == "unavailable" else (
+        "failed" if result.get("mode") not in ("meta", "demo") else "succeeded")
     event,created=finops.record_inference_event(InferenceEventRecord(
         id=result.get("request_id") or run.id,request_id=result.get("request_id") or run.id,
         attempt_no=1,workflow_run_id=run.id,case_id=c['id'],
         operation="hypothesis_generation",provider=provider.name,
         model=result.get("model"),protocol="chat_completions" if provider.name=="meta" else "mock",
-        usage_source=usage_source,completed_at=result.get("completed_at"),
-        duration_ms=result.get("duration_ms"),status="succeeded",
+        usage_source=usage_source,request_started_at=run.started_at,completed_at=result.get("completed_at"),
+        duration_ms=result.get("duration_ms"),status=inference_status,
+        error_class=result.get("error_type"),
         input_tokens=usage.get("input_tokens"),output_tokens=usage.get("output_tokens"),
         cached_input_tokens=usage.get("cached_input_tokens"),
+        reasoning_tokens=usage.get("reasoning_tokens"),
         provider_total_tokens=usage.get("provider_total_tokens"),
         raw_usage_json=None,provider_request_id=usage.get("provider_request_id"),
         pricebook_version=PRICEBOOK_VERSION if cost_micros is not None else None,
         estimated_cost_usd_micros=cost_micros,budget_decision_id=decision.id,
         content_logged=False,synthetic=True))
-    finops.complete_run(run.id,"completed")
+    finops.complete_run(run.id,"completed" if inference_status == "succeeded" else "failed")
 
     # 5. Link into the hash-chained case timeline.
     store.audit_inference(c['id'],event.request_id,provider.name,result.get("model"),
@@ -266,8 +332,9 @@ def ai_case(case_id:str):
                          "missing_evidence":analysis.get("missing_evidence",[]),
                          "causal_limit":analysis.get("causal_limit"),
                          "warning":result.get("warning")})
-    if result.get("mode")=="unavailable":
-        response.update({"error_type":result.get("error_type"),"text":result.get("text")})
+    if inference_status != "succeeded":
+        response.update({"error_type":result.get("error_type"),"text":result.get("text"),
+                         "error_category":result.get("error_category"),"http_status":result.get("http_status")})
     return response
 
 # ---- FinOps API ------------------------------------------------------------
