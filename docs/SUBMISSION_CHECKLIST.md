@@ -15,7 +15,7 @@ deployed, or published by the build agent.**
 - [x] Governance & token-economics screen with per-case drilldown
 - [x] SYNTHETIC DEMO indicator on every view; descriptive (non-causal) labeling intact
 - [ ] Screenshots captured from a live browser session (not available in build env)
-- [ ] Live Meta smoke test (`docs/LIVE_API_SMOKE_TEST.md` — needs owner's key + Standard-mode check)
+- [x] One local synthetic live Meta smoke test passed on 2026-11-04 after owner-confirmed Standard mode (`docs/LIVE_API_SMOKE_TEST.md`); hosted verification remains pending.
 
 ## Hackathon compliance (owner to verify)
 - [ ] Accepted participant/Discord terms reviewed (public rules page was stale at build time)

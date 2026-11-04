@@ -1,8 +1,17 @@
 # Live Meta API Smoke Test — FloorTruth v0.3
 
-**Status: `LIVE_API_NOT_VERIFIED`.** No successful live Meta smoke test has
-been recorded for this build. With no configured key, the application uses the
-deterministic mock provider.
+**Status: one live synthetic smoke test passed on 2026-11-04.** The test used
+`muse-spark-1.3` through the application API and an isolated temporary database.
+This verifies the tested local path, not the Render deployment or future calls.
+With no configured key, the application uses the deterministic mock provider.
+
+The account owner confirmed Standard mode before the test. Meta reported 392
+input tokens, 1,009 output tokens (including 717 reasoning tokens), and 1,401
+total tokens; cached input was zero. The ledger recorded a $0.004778 estimated
+cost using pricebook `2026-10-29`. Two hypotheses passed source-ID validation
+and the evidence fingerprint matched. The estimate is not an invoice, and
+valid source IDs do not establish factual correctness. No prompt, key, or model
+response body is recorded here.
 
 ## Activation steps (owner action, requires a Meta developer account)
 
@@ -45,7 +54,7 @@ deterministic mock provider.
    pricebook version used, and any schema/validation failures. Never store the
    key, full prompts, or raw proprietary response bodies in the repo.
 
-## Mock-mode behavior (current, verified)
+## Mock-mode behavior (verified when Meta is not configured)
 
 - `MetaChatProvider.is_configured()` → `False`; `select_provider()` → `MockProvider`.
 - Mock returns `mode: "demo"`, deterministic hypotheses, and **estimated**

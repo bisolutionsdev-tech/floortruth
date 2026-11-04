@@ -3,8 +3,9 @@
 Honest accounting of what this build is not. Nothing here is marketed as functional.
 
 ## Inference & providers
-- **No live Meta test has run.** `LIVE_API_NOT_VERIFIED`; the mock provider is active.
-  Meta processing mode (Standard vs Contributor) cannot be verified in this environment.
+- One local synthetic Meta smoke test passed on 2026-11-04 after the owner confirmed
+  Standard mode. Hosted deployment, ongoing availability and future model responses
+  remain unverified; mock is the default without an enabled server-side key.
 - Mock usage (2,000 in / 400 out tokens) is **estimated**, not provider-reported.
 - Only Chat Completions is wrapped. Responses API, voice transcription, SAM 3.1,
   and image generation are typed hooks/stubs, not implementations.

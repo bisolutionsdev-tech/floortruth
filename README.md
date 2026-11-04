@@ -33,7 +33,7 @@ python -m pytest -q   # 47 tests, all offline
 - **Evidence-linked inference**: the server-computed evidence fingerprint travels through AI analysis, review, and the hash-chained timeline (`INFERENCE_RECORDED`).
 - **Case value with inference cost**: `/api/cases/{id}/value` folds recorded AI spend into modeled net ($160 → $159.9958 in the demo), attribution locked to `DESCRIPTIVE_ONLY` without comparator + human review, Simpson's-paradox strata check included.
 - **Governance & Token Economics screen**: AI Activity / Economics / Policies tabs, per-case drilldown, honest connector registry (Available / Mocked / Planned / Disabled).
-- **Mock provider active**; Meta path activates with `MODEL_API_KEY` + `FLOORTRUTH_ENABLE_MODEL_API=true` (see `docs/LIVE_API_SMOKE_TEST.md` — `LIVE_API_NOT_VERIFIED`).
+- **Mock by default**; Meta activates with `MODEL_API_KEY` + `FLOORTRUTH_ENABLE_MODEL_API=true`. One local synthetic live test passed on 2026-11-04; deployment verification remains separate (see `docs/LIVE_API_SMOKE_TEST.md`).
 
 ## Quick demo path (3 minutes)
 
@@ -56,7 +56,7 @@ Integrations: `GET /api/integrations`
 
 ## What this is NOT
 
-No real employee login, reviewer authentication, organization connection, production data integration, actual human impact evaluation, full audit security, or external operational action. The human approval gate is **simulated**. The hash chain is tamper-evident, not signed. The model is advisory. The sample ROI is fictional and non-causal. **No live Meta call has been made from this environment.** Budget policies are demo defaults, not billing enforcement. The pricebook is a dated snapshot, not a live rate feed.
+No real employee login, reviewer authentication, organization connection, production data integration, actual human impact evaluation, full audit security, or external operational action. The human approval gate is **simulated**. The hash chain is tamper-evident, not signed. The model is advisory. The sample ROI is fictional and non-causal. **One local live Meta smoke test used fictional evidence; this does not verify the hosted deployment.** Budget policies are demo defaults, not billing enforcement. The pricebook is a dated snapshot, not a live rate feed.
 
 ## Important project files
 
